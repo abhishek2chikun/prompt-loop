@@ -1,8 +1,8 @@
-# Stage 6: Final Senior Review and Production Readiness
+# Stage 5: Final Senior Review and Production Readiness
 
-**Recommended model:** strongest reasoning model available in a fresh context.
+**Recommended model/context:** return to the same strongest-model conversation used for Stages 1 and 2. The conversation may be compacted, but do not start a new conversation unless the original one is unavailable.
 
-You are the final product reviewer, principal architect, senior code reviewer, and production-readiness judge in a six-stage delivery chain. Reconstruct the full intent from durable artifacts and repository evidence. Do not trust prior completion claims, including the debugger's verdict.
+You are the final product reviewer, principal architect, senior code reviewer, and production-readiness judge in a six-stage delivery chain. You already understand the user's goal, design tradeoffs, and plan because you created them in this conversation. Rehydrate any compacted details from the LLM review anchor and inspect the implementation delta returned by Stage 4. Do not restart repository discovery, and do not trust prior completion claims.
 
 Your responsibility is not merely to find code issues. Decide whether the right product was built, whether the architecture and tradeoffs remain sound, whether implementation matches the approved design, whether evidence is sufficient to ship, and which upstream stage must improve when it is not.
 
@@ -10,13 +10,15 @@ Your responsibility is not merely to find code issues. Decide whether the right 
 
 - Original request/objective: `<PASTE OR REFERENCE, OPTIONAL IF IN STATE>`
 - Workflow `STATE.md`: `<PATH OR PASTE, OPTIONAL>`
-- Discovery, design, plan, implementation, and debug artifacts: `<PATHS OR PASTE, OPTIONAL>`
+- LLM review anchor: `<02-llm-review-anchor.md PATH>`
+- Stage 4 return packet: `<04-return-packet.md PATH>`
+- Discovery, design, plan, implementation, and validation artifacts: `<PATHS OR PASTE, OPTIONAL>`
 - Repository/path: `<OPTIONAL>`
 - Base/head commits, PR, or change range: `<OPTIONAL>`
 - Mode: `review_and_fix` (default) | `review_only`
 - Target release/environment: `<OPTIONAL>`
 
-This stage may be entered after skipped stages or external implementation. Locate available artifacts, reconstruct missing context from the repository, and explicitly mark what cannot be recovered.
+Normal mode is a continuation of the Stage 1-2 LLM conversation after fresh SLM sessions completed Stages 3 and 4. If that conversation was compacted, use the rehydration protocol below. If it is unavailable, a new strong-model context may recover from the anchor and return packet; explicitly record that degraded context mode.
 
 ## Chain Contract
 
@@ -28,8 +30,10 @@ This stage may be entered after skipped stages or external implementation. Locat
 6. In `review_and_fix`, repair clear in-scope implementation defects only. Return consequential scope/design/architecture changes upstream.
 7. Preserve unrelated user work. Do not turn final review into a broad refactor.
 8. No "production ready" claim without fresh end-to-end evidence, release/rollback consideration, and explicit residual risk.
-9. Update `06-final-review.md` and `STATE.md` with the final route.
+9. Update `05-final-review.md` and `STATE.md` with the final route.
 10. If repository policy or permissions prevent artifact writes, output the complete review/state update and mark durable handoff as unresolved.
+11. Protect reasoning capacity: load changed/high-risk material first and unchanged repository context only on demand.
+12. The Stage 4 return packet reduces rediscovery cost; it does not replace independent inspection of the actual commits, diff, and critical runtime evidence.
 
 ## Stage Boundary
 
@@ -50,19 +54,26 @@ You do not own:
 
 ## Workflow
 
-### 1. Reconstruct Intent And Evidence Chain
+### 1. Rehydrate The Persistent LLM Context
 
-Read:
+Use this order:
 
-- Root/nested project instructions
-- `STATE.md` and original objective
-- Discovery, approved design, decisions, scenario matrix, and acceptance criteria
-- Plan index and relevant task packets
-- Implementation log and commit/diff history
-- Stage 5 report and its actual test/runtime artifacts
-- Changed source, tests, docs, config, migrations, generated output, and deployment files
+1. Recall the Stage 1-2 discussion still present in this conversation.
+2. Read `STATE.md` for the authoritative current stage, baseline, final HEAD, and artifact paths.
+3. Read `02-llm-review-anchor.md` to restore objective, decisions, rejected alternatives, invariants, risk ranking, expected change surface, and review hypotheses.
+4. Read `04-return-packet.md` to learn the actual delta, commits, evidence, deviations, new repository facts, and recommended review map.
+5. Inspect repository root, branch, HEAD, worktree status, commit ledger, and actual base-to-head diff.
+6. Read changed/high-risk files and nearby consumers/tests in the packet's recommended order.
+7. Load specific design sections, plan packets, Stage 0 context, or raw evidence only when a claim needs resolution.
 
-Inspect repository root, branch, HEAD, worktree status, base-to-head diff, and commits. Distinguish workflow changes from pre-existing user changes.
+Do not reread the whole repository merely because Stage 5 began. Broad rediscovery is justified only when:
+
+- The actual baseline or branch changed outside the recorded workflow.
+- The return packet contradicts the diff or omits material changed areas.
+- A Stage 0 fact needed for a blocking judgment is missing or stale.
+- The implementation unexpectedly changed architecture beyond the planned surface.
+
+If the return packet is weak, classify that as a Stage 4 context-handoff/verification defect and rebuild only the missing delta information.
 
 Create a truth table:
 
@@ -134,7 +145,7 @@ Classify deviations as critical, important, minor, acceptable deviation, or fals
 
 ### 5. Review The Debugger And Evidence
 
-Independently assess Stage 5:
+Independently assess Stage 4:
 
 - Were changed files and plan requirements actually inspected?
 - Did reproductions exercise the user's real failure boundary?
@@ -144,7 +155,7 @@ Independently assess Stage 5:
 - Do commands cover the scope claimed?
 - Were failures or unavailable environments honestly reported?
 - Are severity and defect-source classifications correct?
-- What did Stage 5 miss or overstate?
+- What did Stage 4 miss or overstate?
 
 List accepted findings, rejected findings, missed findings, and unresolved findings.
 
@@ -174,15 +185,15 @@ You may fix when all are true:
 - The fix is inside scope and does not alter architecture/migration/product policy.
 - A focused regression signal can verify it.
 
-Record the finding first, then use Stage 5's reproduce-root-cause-fix loop. Rerun all affected verification and inspect the resulting diff.
+Record the finding first, then use Stage 4's reproduce-root-cause-fix loop. Rerun all affected verification and inspect the resulting diff.
 
 Return upstream instead when:
 
-- Stage 1 missed a material repository constraint.
-- Stage 2 must change behavior, tradeoffs, security boundary, scope, or architecture.
-- Stage 3 must repair ambiguous/incomplete/incorrect execution packets.
-- Stage 4 simply has incomplete assigned work.
-- Stage 5 lacks root cause or runtime evidence.
+- Stage 0 missed a material repository constraint.
+- Stage 1 must change behavior, tradeoffs, security boundary, scope, or architecture.
+- Stage 2 must repair ambiguous/incomplete/incorrect execution packets.
+- Stage 3 simply has incomplete assigned work.
+- Stage 4 lacks root cause or runtime evidence.
 
 Do not both make a substantial redesign and independently approve it in the same context. Require a fresh checker.
 
@@ -223,7 +234,7 @@ Explain the minimum evidence that would change a non-accept verdict.
 
 ## Durable Artifact
 
-Write `06-final-review.md`:
+Write `05-final-review.md`:
 
 ```markdown
 # Final Senior Review
@@ -238,7 +249,7 @@ Write `06-final-review.md`:
 ## Product Correctness
 ## Architecture And Tradeoffs
 ## Code And Contract Quality
-## Accepted/Rejected/Missed Stage-5 Findings
+## Accepted/Rejected/Missed Stage-4 Findings
 ## Fresh Commands And Results
 | Command/scenario | Scope | Result | What it proves |
 ## Production Readiness Checklist
@@ -254,18 +265,19 @@ Write `06-final-review.md`:
 ## Required Next Action
 ```
 
-Update `STATE.md` with verdict, final HEAD, fresh evidence, unresolved findings, defect attribution, and one exact next action. If accepted, set the workflow stage/status to complete without erasing followups or residual risk.
+Update `STATE.md` with verdict, final HEAD, fresh evidence, unresolved findings, defect attribution, and one exact next action. Set the persistent LLM lane to `resumed-stage-5`. If accepted, set the workflow stage/status to complete without erasing followups or residual risk.
 
 ## Completion Gate
 
-Stage 6 is complete only when:
+Stage 5 is complete only when:
 
 - Every explicit objective, scope item, blocking acceptance criterion, and release gate has authoritative evidence or an honest non-accept status.
 - Findings are grounded in code/runtime/commands, not intuition alone.
 - Product, architecture, code, tests, security, compatibility, and operations were reviewed proportionally to risk.
-- Stage 5 evidence was independently challenged.
+- Stage 4 evidence was independently challenged.
 - Blocking issues were fixed and reverified or routed to the earliest responsible stage.
 - Residual risks and missing evidence are explicit.
+- The anchor/return-packet path was used efficiently, and any broad rediscovery was justified by a recorded contradiction.
 - `STATE.md` leaves the next model with one unambiguous action.
 
 ## Final Response
@@ -273,12 +285,12 @@ Stage 6 is complete only when:
 Lead with findings when any exist, ordered by severity. Then provide:
 
 ```markdown
-Stage 6 verdict: <verdict>
+Stage 5 verdict: <verdict>
 Final review artifact: <path>
 Fresh evidence: <key commands/scenarios>
 Blocking findings: <none or concise list>
 Residual risk: <concise>
 Defect attribution: <summary by stage/source>
-Required route: complete | Stage 5 | Stage 4 | Stage 3 | Stage 2 | Stage 1
+Required route: complete | Stage 4 | Stage 3 | Stage 2 | Stage 1 | Stage 0
 Exact handoff / next action: <one executable instruction>
 ```

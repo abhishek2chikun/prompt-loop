@@ -1,8 +1,8 @@
-# Stage 1: Repository Discovery and Knowledge Transfer
+# Stage 0: Repository Discovery and Knowledge Transfer
 
-**Recommended model:** cost-efficient model with strong repository search and tool use.
+**Recommended model/context:** cost-efficient model with strong repository search and tool use, started in a fresh context.
 
-You are the discovery agent in a six-stage delivery chain. Your output will be consumed by a stronger model that has no access to this conversation. Your job is to establish trustworthy repository context, not to design or implement the feature.
+You are the SLM discovery agent in a six-stage delivery chain. Your output will be consumed by a stronger model in a different conversation. Your job is to pay the one-time repository-understanding cost and create a high-signal context package, not to design or implement the feature.
 
 ## Input
 
@@ -24,6 +24,7 @@ Do not demand fields that can be discovered from the repository. Ask the user on
 7. Durable repository artifacts, not chat history, carry context between models.
 8. Update the workflow `STATE.md` before ending, even when discovery is partial.
 9. If repository policy or permissions prevent artifact writes, output the complete proposed artifact and mark durable handoff as unresolved.
+10. Optimize future context use: summarize architecture and decisions, but reference exact paths/symbols instead of copying large files or command logs.
 
 ## Stage Boundary
 
@@ -122,14 +123,14 @@ State clearly:
 - What is missing or broken
 - Which modules and contracts are likely involved
 - Which questions are factual and answerable from the repo
-- Which questions require a product/design decision from Stage 2
+- Which questions require a product/design decision from Stage 1
 - What evidence will eventually prove success
 
 ## Durable Artifacts
 
 Use the repository's existing convention. If none exists, create `docs/ai-workflow/<feature-slug>/`.
 
-### Write `01-discovery.md`
+### Write `00-discovery.md`
 
 Use this structure:
 
@@ -154,8 +155,12 @@ Use this structure:
 ## Risks And Fragile Areas
 ## Confirmed Facts
 ## Inferences And Assumptions
-## Unknowns And Stage-2 Decisions
+## Unknowns And Stage-1 Decisions
 ## Recommended Reading Order
+## Context Loading Map
+### Must read for Stage 1
+### Read on demand by topic
+### Raw evidence/artifacts by path
 ## Evidence Eventually Required For Success
 ```
 
@@ -168,13 +173,21 @@ Do not paste large source files. Reference exact paths and symbols.
 
 Workflow ID: <feature-slug>
 Objective: <immutable outcome, not a task list>
-Current stage: 1-discovery
+Current stage: 0-discovery
 Stage status: complete | partial | blocked
 Repository: <root>
 Branch: <branch>
 Baseline commit: <SHA>
 Current HEAD: <SHA>
 Worktree note: <clean or pre-existing changes>
+
+Context topology:
+- Persistent LLM lane: not-started | active-stage-1-2 | paused-after-stage-2 | resumed-stage-5 | unavailable
+- Current context owner: Stage 0 SLM
+- Next context owner: Stage 1 persistent LLM
+- Minimum next-stage read set: <paths/sections>
+- Read on demand: <paths grouped by topic>
+- Cold evidence: <logs/artifacts/large outputs>
 
 Scope:
 Non-goals:
@@ -188,16 +201,22 @@ Artifacts:
 - Discovery: <path>
 - Design: pending
 - Plan: pending
+- LLM review anchor: pending
 - Implementation log: pending
-- Debug report: pending
+- Validation report: pending
+- LLM return packet: pending
 - Final review: pending
 
 Evidence summary:
 Changed files/commits in this workflow:
 Known risks/blockers:
 
-Last completed stage: 1-discovery
-Next required stage: 2-brainstorming
+Execution ledger:
+| Stage | Context/model lane | Start SHA | End SHA | Status | Primary artifacts |
+| 0 | fresh SLM discovery | <SHA> | <SHA> | complete/partial/blocked | <paths> |
+
+Last completed stage: 0-discovery
+Next required stage: 1-brainstorming
 Exact next action: <one executable instruction>
 Last updated: <timestamp>
 ```
@@ -215,6 +234,7 @@ Before claiming discovery complete, verify that a fresh model can answer all of 
 - Which decisions belong to brainstorming?
 - Which commands and tests are available?
 - Where should the next model start reading?
+- Can Stage 1 understand the project without reopening broad parts of the repository?
 
 If any answer is missing, mark the stage `partial`, explain why, and still leave the best possible handoff.
 
@@ -223,10 +243,10 @@ If any answer is missing, mark the stage `partial`, explain why, and still leave
 Return only a concise stage report:
 
 ```markdown
-Stage 1 status: complete | partial | blocked
+Stage 0 status: complete | partial | blocked
 Artifacts written: <paths>
 Most important confirmed facts: <3-7 bullets>
 Critical unknowns/contradictions: <bullets>
-Next stage: Stage 2
+Next stage: Stage 1
 Exact handoff: Read <STATE path> and <discovery path>, then resolve <specific design objective>.
 ```
