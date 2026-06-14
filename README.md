@@ -30,12 +30,13 @@ This loop turns chat context into durable, repository-grounded artifacts. Each s
 Fresh SLM A                  Persistent strong-model conversation P
 Stage 1 discovery ---------> Stage 2 design + planning
                                   Plan Mode: grill and decide
-                                  Agent Mode: write artifacts/worktree handoff
+                                  Plan-Writing Mode: commit plans on integration branch
                                                     |
                                                     | pause P
                                                     v
 Fresh SLM B                  Fresh SLM C
-Stage 3 implementation ---> Stage 4 independent validation
+Stage 3 create worktree
+        + implementation --> Stage 4 independent validation
                                                     |
                                                     v
                               Resume conversation P
@@ -48,9 +49,9 @@ Stage 2 and Stage 5 stay in the same strong-model conversation. It may be compac
 
 | Stage | Model/context | Responsibility | Main artifacts |
 |---|---|---|---|
-| 1. Discovery | Fresh SLM | Build a solution-blind map of current repository reality and prior-cycle relevance | `01-discovery.md`, `STATE.md` |
-| 2. Design + planning | Persistent strong LLM | Grill the idea, approve design, provision the worktree, and create SLM-executable tasks | `02-design.md`, `02-plan/`, `02-llm-review-anchor.md` |
-| 3. Implementation | Fresh SLM | Execute the approved tasks inside the canonical feature worktree | `03-implementation-log.md`, commits |
+| 1. Discovery | Fresh SLM | Build a solution-blind map of current repository reality and prior-cycle relevance; create no feature worktree | `01-discovery.md`, `STATE.md` |
+| 2. Design + planning | Persistent strong LLM | Grill the idea, write SLM-executable plans, and commit workflow docs on the clean integration/default branch | `02-design.md`, `02-plan/`, `02-llm-review-anchor.md`, planning commit |
+| 3. Implementation | Fresh SLM coordinator | Create the canonical feature worktree from the planning commit, then execute sequentially or through approved parallel lanes | `03-implementation-log.md`, feature commits |
 | 4. Validation | Different fresh SLM | Independently inspect, debug, fix, test, and create a dense return packet | `04-validation-report.md`, `04-return-packet.md` |
 | 5. Final review + merge | Resume Stage 2 LLM | Judge product/code/readiness, make bounded fixes, and integrate only after gates pass | `05-final-review.md`, merge/integration record |
 
@@ -78,26 +79,42 @@ In IDE **Plan Mode**, Stage 2:
 - defines scope, contracts, failure behavior, and acceptance criteria; and
 - obtains approval.
 
-When the user switches to **Agent Mode** or approves artifact creation, the same conversation:
+When the user clicks the IDE's **Implement/Agent** action, the same conversation enters **Stage 2 Plan-Writing Mode**. In this workflow, phrases such as "implement this plan," "build this plan," "proceed," or "go ahead" mean writing the detailed plan, not building the product. The conversation:
 
-- creates or verifies the canonical feature worktree;
 - writes `02-design.md`;
 - writes repository-grounded task packets;
+- writes `02-plan/implementation_guide.md` with the sequential/parallel execution shape;
 - writes the compact review anchor; and
-- prepares the exact Stage 3 handoff.
+- commits the Stage 1/2 workflow artifacts on the integration/default branch and leaves that checkout clean.
 
 Switching modes does not authorize production implementation. It materializes the approved plan so a fresh SLM can execute it.
 
-## Worktree And Merge Ownership
+Stage 2 enforces this mechanically:
 
-Every concrete cycle has one canonical worktree contract:
+- writes are allowlisted to workflow artifacts only;
+- source, tests, migrations, configuration, dependencies, generated files, and `03-*` through `05-*` artifacts are forbidden;
+- feature branch/worktree creation is forbidden;
+- its internal execution checklist may contain only Stage 2 planning work, never implementation slices;
+- `STATE.md` must remain `2-design-and-planning` with Stage 3 as the next owner; and
+- a focused planning commit and clean integration/default checkout are required before handoff.
+
+Production implementation starts only after the Stage 2 conversation stops and [03-implementation.prompt.md](03-implementation.prompt.md) is supplied in a fresh context.
+
+## Git, Worktree, And Merge Ownership
+
+Planning and implementation deliberately use different checkouts:
 
 ```markdown
 Integration target branch:
+Planning checkout absolute path:
+Stage 2 planning commit/status:
+Proposed feature branch/worktree:
+Stage 3 creation policy:
+
 Feature branch:
 Worktree name/ID:
 Canonical worktree absolute path:
-Worktree baseline SHA:
+Implementation baseline SHA:
 Worktree status:
 Merge owner: Stage 5 persistent LLM
 Merge authorization: required | pre-authorized
@@ -106,11 +123,13 @@ Merge status: not-started
 
 Ownership is deliberate:
 
-- Stage 1 may bootstrap the worktree so its cycle artifacts begin in the correct checkout.
-- Stage 2 must verify or safely create it before handing off implementation.
-- Stage 3 refuses to edit the integration/default branch and works only in the canonical worktree.
+- Stage 1 writes discovery artifacts in the normal integration/default checkout and records worktree policy, but creates no feature worktree.
+- Stage 2 writes and commits discovery/design/plan artifacts there. It must finish with a clean checkout and no source changes.
+- Stage 3 starts from that clean planning HEAD, creates the feature branch/worktree, records its actual identity, and performs all implementation there.
 - Stage 4 validates and fixes the same feature worktree, records its absolute path and final SHA, and never merges.
 - Stage 5 alone decides and performs integration after acceptance, authorization, clean-state checks, target-drift checks, and post-merge validation.
+
+Because Stage 3 branches from the Stage 2 planning commit, the complete workflow context is already present in the feature worktree. There is no second live copy of the plan to reconcile.
 
 A merge is not a deployment. `code-ready-release-unverified` remains unmerged by default. Production-release claims require the environment, distribution, migration, signing, rollout, and rollback evidence relevant to that project.
 
@@ -129,6 +148,7 @@ docs/ai-workflow/
       02-design.md
       02-plan/
         00-plan-index.md
+        implementation_guide.md
         <task files>.md
       02-llm-review-anchor.md
       03-implementation-log.md
@@ -180,6 +200,12 @@ The authoritative control plane for one cycle. It records:
 
 A compact backup of the strong model's intent: approved decisions, rejected alternatives, invariants, risk-ranked acceptance criteria, expected change surface, review hypotheses, and rehydration order.
 
+### `02-plan/implementation_guide.md`
+
+The Stage 3 orchestration contract. It classifies the plan as `sequential`, `parallel-lanes`, or `hybrid`, then records the dependency graph, sequential spine, parallel lane ownership, integration order, shared validation gates, and fallback behavior.
+
+Parallel execution is used only when substantial tasks have disjoint write ownership and fixed contracts. Parallel writers need isolated workspaces/patch return or separate child worktrees; concurrent edits to one checkout are forbidden. If safe isolation is unavailable, Stage 3 runs the same lanes sequentially and records why.
+
 ### `04-return-packet.md`
 
 The implementation delta dossier returned to the original LLM. It contains:
@@ -203,19 +229,19 @@ It references raw logs and artifacts by path rather than consuming the final rev
 
 Start a fresh SLM context with [01-discovery.prompt.md](01-discovery.prompt.md). Provide the repository and a neutral problem/workflow/area. Do not include the preferred solution.
 
-Expected result: a new cycle directory, independent discovery, project-memory updates, and a canonical worktree or an explicit worktree blocker.
+Expected result: a new cycle directory, independent discovery, project-memory updates, and a recorded planning checkout/future worktree policy. No feature branch/worktree is created.
 
 ### 2. Start the persistent LLM conversation
 
 Open the strong model in Plan Mode with [02-design-and-planning.prompt.md](02-design-and-planning.prompt.md). Provide the full idea plus Stage 1 artifact paths.
 
-Answer the focused questions. After approving the direction, switch to Agent Mode in the same conversation so it writes the design, plan, review anchor, and worktree handoff.
+Answer the focused questions. After approving the direction, click the IDE's Implement/Agent action. Under this workflow that action means: write the detailed Stage 2 design, task packets, implementation guide, review anchor, and boundary audit; commit those workflow docs on the integration/default branch; verify the checkout is clean; then stop.
 
 ### 3. Pause the LLM and implement
 
-Keep the Stage 2 conversation available. Start a fresh SLM inside the recorded worktree with [03-implementation.prompt.md](03-implementation.prompt.md).
+Keep the Stage 2 conversation available but paused. Start a fresh SLM from the clean integration/default checkout with [03-implementation.prompt.md](03-implementation.prompt.md). Stage 3 verifies the planning commit, creates the recorded feature branch/worktree from that HEAD, enters it, and only then may change source, tests, migrations, or configuration.
 
-The implementer verifies worktree identity before editing, follows the task packets, commits coherent feature-branch changes, and records evidence.
+The Stage 3 coordinator follows `implementation_guide.md`. Sequential plans stay sequential. Parallel/hybrid plans use sub-agents for all ready safe lanes when isolation is available, then integrate lane outputs in the prescribed order. It commits coherent feature-branch changes and records evidence.
 
 ### 4. Validate independently
 

@@ -119,18 +119,19 @@ Look for:
 
 State what exists, what is missing/broken, likely affected modules/contracts, factual unknowns, Stage 2 decisions, inherited capabilities, and evidence eventually required for success. Do not infer the desired solution.
 
-### 5. Establish One Canonical Cycle Worktree
+### 5. Record The Planning Checkout And Future Worktree Policy
+
+Stage 1 writes discovery artifacts in the repository's normal integration/default checkout. If launched elsewhere, locate the existing integration checkout or stop with its required path; do not create another checkout, feature branch, or worktree.
 
 For a concrete Git cycle:
 
-1. Detect worktree/branch policy and existing worktrees.
-2. Reuse a worktree only when it already belongs to this cycle.
-3. Otherwise create a dedicated feature branch/worktree from the recorded integration baseline when permitted.
-4. Prefer repository conventions; otherwise use a descriptive branch and sibling worktree outside the primary checkout.
-5. Never absorb or move uncommitted user changes.
-6. If creation is blocked, record the exact proposed branch/path/command and require Stage 2 to resolve it before implementation.
+1. Detect repository branch/worktree policy and list existing worktrees.
+2. Record the integration target, current checkout path, current HEAD, and cleanliness.
+3. Record repository naming/location conventions for a future Stage 3 feature branch and worktree.
+4. If the integration checkout contains unrelated changes, preserve and report them. Do not move them into a cycle branch.
+5. Leave feature branch, feature worktree, and implementation baseline as `pending Stage 3 creation`.
 
-Write all mutable cycle artifacts in the canonical cycle worktree. Stage 2 must verify this contract; Stages 3-4 must use it; Stage 5 owns merge.
+Stage 2 will commit the discovery and planning artifacts on the integration branch. Stage 3 alone creates the implementation branch/worktree from that clean planning baseline. Stages 3-4 use the resulting canonical feature worktree; Stage 5 owns merge.
 
 ## Artifacts
 
@@ -248,11 +249,16 @@ Baseline/current HEAD:
 
 Git/worktree contract:
 - Integration target branch:
-- Feature branch:
-- Worktree name/ID:
-- Canonical worktree absolute path:
-- Worktree baseline SHA:
-- Worktree status:
+- Planning checkout absolute path:
+- Planning checkout status:
+- Stage 2 planning commit status: pending
+- Proposed feature branch/name convention:
+- Proposed worktree location:
+- Feature branch: pending Stage 3 creation
+- Worktree name/ID: pending Stage 3 creation
+- Canonical feature worktree absolute path: pending Stage 3 creation
+- Implementation baseline SHA: pending Stage 3 creation
+- Feature worktree status: not-created
 - Merge owner: Stage 5 persistent LLM
 - Merge authorization: required | pre-authorized
 - Merge status: not-started
@@ -296,7 +302,7 @@ Before ending any mode, rerun repository status after artifact writes. Distingui
 
 ## Completion Gate
 
-Discovery is complete only when a fresh strong model can identify current behavior, evidence, contracts to preserve, relevant prior cycles/freshness, risks/unknowns, commands, worktree identity, and where to read next without broad rediscovery.
+Discovery is complete only when a fresh strong model can identify current behavior, evidence, contracts to preserve, relevant prior cycles/freshness, risks/unknowns, commands, planning-checkout identity, future worktree policy, and where to read next without broad rediscovery.
 
 If anything material is missing, mark `partial` and leave the best exact handoff. Update the new cycle's active `INDEX.md` row, but do not mark it accepted.
 
@@ -306,7 +312,8 @@ If anything material is missing, mark `partial` and leave the best exact handoff
 Stage 1 status: complete | partial | blocked | context-refreshed
 Artifacts: <paths>
 Cycle/lineage: <summary>
-Canonical worktree: <name/ID, absolute path, feature branch -> integration target, or blocker>
+Planning checkout: <absolute path, integration branch, HEAD, status>
+Future implementation worktree: pending Stage 3 creation; <recorded naming/location policy or blocker>
 Confirmed current state: <3-7 bullets>
 Inherited/superseded knowledge: <summary>
 Critical unknowns: <bullets>

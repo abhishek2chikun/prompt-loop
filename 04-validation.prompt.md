@@ -80,12 +80,14 @@ Inspect:
 Use this context-loading order to avoid unnecessary rediscovery:
 
 1. `STATE.md`
-2. `02-llm-review-anchor.md`, plan index, and implementation log
+2. `02-llm-review-anchor.md`, plan index, `implementation_guide.md`, and implementation log
 3. Actual base-to-head commit range and diff statistics
 4. Changed files, nearby consumers/tests, and relevant task packets
 5. Design or Stage 1 sections only when needed to resolve a claim or contradiction
 
 Stage 1 already paid for broad repository mapping. Do not repeat it unless the baseline changed materially or the existing context is demonstrably wrong.
+
+When Stage 3 used `parallel-lanes` or `hybrid`, verify the orchestration ledger, lane isolation, file ownership, integration order, and combined validation. Treat overlapping concurrent edits, missing lane evidence, or unvalidated integration conflicts as implementation defects even when individual lane tests passed.
 
 Before any fix or validation command, verify the `STATE.md` worktree contract:
 

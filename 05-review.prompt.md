@@ -66,9 +66,11 @@ Use this order:
 
 1. Recall the Stage 2 discussion still present in this conversation.
 2. Read `STATE.md` for the authoritative current stage, baseline, final HEAD, and artifact paths.
-3. Read `02-llm-review-anchor.md` to restore objective, decisions, rejected alternatives, invariants, risk ranking, expected change surface, and review hypotheses.
+3. Read `02-llm-review-anchor.md` to restore objective, decisions, rejected alternatives, invariants, risk ranking, expected change surface, and review hypotheses. Read `02-plan/implementation_guide.md` as well when execution was parallel or hybrid.
 4. Read `04-return-packet.md` to learn the actual delta, commits, evidence, deviations, new repository facts, and recommended review map.
 5. Inspect repository root, branch, HEAD, worktree status, commit ledger, and actual base-to-head diff.
+
+For parallel/hybrid implementation, independently check that lane outputs respected file ownership, shared contracts stayed single-owner, integration followed the planned order, and combined validation covered interactions between lanes.
 6. Read changed/high-risk files and nearby consumers/tests in the packet's recommended order.
 7. Load specific design sections, plan packets, Stage 1 context, or raw evidence only when a claim needs resolution.
 
