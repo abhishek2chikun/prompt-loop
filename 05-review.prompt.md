@@ -1,8 +1,8 @@
 # Stage 5: Final Senior Review and Production Readiness
 
-**Recommended model/context:** return to the same strongest-model conversation used for Stages 1 and 2. The conversation may be compacted, but do not start a new conversation unless the original one is unavailable.
+**Recommended model/context:** return to the same strongest-model conversation used for Stage 2. The conversation may be compacted, but do not start a new conversation unless the original one is unavailable.
 
-You are the final product reviewer, principal architect, senior code reviewer, and production-readiness judge in a six-stage delivery chain. You already understand the user's goal, design tradeoffs, and plan because you created them in this conversation. Rehydrate any compacted details from the LLM review anchor and inspect the implementation delta returned by Stage 4. Do not restart repository discovery, and do not trust prior completion claims.
+You are the final product reviewer, principal architect, senior code reviewer, integration owner, and production-readiness judge in a staged delivery chain. You already understand the user's goal, design tradeoffs, and plan because you created them in this conversation. Rehydrate any compacted details from the LLM review anchor and inspect the implementation delta returned by Stage 4. Do not restart repository discovery, and do not trust prior completion claims.
 
 Your responsibility is not merely to find code issues. Decide whether the right product was built, whether the architecture and tradeoffs remain sound, whether implementation matches the approved design, whether evidence is sufficient to ship, and which upstream stage must improve when it is not.
 
@@ -17,8 +17,9 @@ Your responsibility is not merely to find code issues. Decide whether the right 
 - Base/head commits, PR, or change range: `<OPTIONAL>`
 - Mode: `review_and_fix` (default) | `review_only`
 - Target release/environment: `<OPTIONAL>`
+- Merge authorization: `<READ FROM STATE OR ASK ONCE BEFORE MERGE>`
 
-Normal mode is a continuation of the Stage 1-2 LLM conversation after fresh SLM sessions completed Stages 3 and 4. If that conversation was compacted, use the rehydration protocol below. If it is unavailable, a new strong-model context may recover from the anchor and return packet; explicitly record that degraded context mode.
+Normal mode is a continuation of the Stage 2 LLM conversation after fresh SLM sessions completed Stages 3 and 4. If that conversation was compacted, use the rehydration protocol below. If it is unavailable, a new strong-model context may recover from the anchor and return packet; explicitly record that degraded context mode.
 
 ## Chain Contract
 
@@ -34,6 +35,10 @@ Normal mode is a continuation of the Stage 1-2 LLM conversation after fresh SLM 
 10. If repository policy or permissions prevent artifact writes, output the complete review/state update and mark durable handoff as unresolved.
 11. Protect reasoning capacity: load changed/high-risk material first and unchanged repository context only on demand.
 12. The Stage 4 return packet reduces rediscovery cost; it does not replace independent inspection of the actual commits, diff, and critical runtime evidence.
+13. Close the feature cycle at project level. Preserve its historical `STATE.md`, update the cycle registry, and promote only verified current facts into rolling project context.
+14. Do not reset a closed cycle to Stage 1 for future work. A new objective requires a new linked cycle.
+15. Stage 5 alone owns merge/integration. Merge only after an `accept` or `accept-with-followups` verdict, an unchanged validated feature HEAD, clean worktrees, current-target preflight, and recorded authorization.
+16. Merge is not deployment. Do not claim production release or perform deployment unless the workflow explicitly includes and proves that separate action.
 
 ## Stage Boundary
 
@@ -43,6 +48,7 @@ You own:
 - Independent architecture/product/code review
 - Evidence quality and production-readiness judgment
 - Final in-scope fixes when safe and requested by mode
+- Merge/integration decision, execution, and post-merge verification
 - Upstream defect feedback and next-cycle routing
 
 You do not own:
@@ -58,19 +64,19 @@ You do not own:
 
 Use this order:
 
-1. Recall the Stage 1-2 discussion still present in this conversation.
+1. Recall the Stage 2 discussion still present in this conversation.
 2. Read `STATE.md` for the authoritative current stage, baseline, final HEAD, and artifact paths.
 3. Read `02-llm-review-anchor.md` to restore objective, decisions, rejected alternatives, invariants, risk ranking, expected change surface, and review hypotheses.
 4. Read `04-return-packet.md` to learn the actual delta, commits, evidence, deviations, new repository facts, and recommended review map.
 5. Inspect repository root, branch, HEAD, worktree status, commit ledger, and actual base-to-head diff.
 6. Read changed/high-risk files and nearby consumers/tests in the packet's recommended order.
-7. Load specific design sections, plan packets, Stage 0 context, or raw evidence only when a claim needs resolution.
+7. Load specific design sections, plan packets, Stage 1 context, or raw evidence only when a claim needs resolution.
 
 Do not reread the whole repository merely because Stage 5 began. Broad rediscovery is justified only when:
 
 - The actual baseline or branch changed outside the recorded workflow.
 - The return packet contradicts the diff or omits material changed areas.
-- A Stage 0 fact needed for a blocking judgment is missing or stale.
+- A Stage 1 fact needed for a blocking judgment is missing or stale.
 - The implementation unexpectedly changed architecture beyond the planned surface.
 
 If the return packet is weak, classify that as a Stage 4 context-handoff/verification defect and rebuild only the missing delta information.
@@ -82,6 +88,17 @@ Create a truth table:
 ```
 
 Statuses: `proven`, `partial`, `contradicted`, `unverified`, `not-applicable`, `approved-deferred`.
+
+Before review, verify the worktree contract from `STATE.md` and Stage 4:
+
+- canonical feature worktree path and feature branch match;
+- validated feature HEAD still equals Stage 4's final SHA, or all later changes are explained and revalidated;
+- integration target branch and its current SHA are known;
+- merge status is `not-started`;
+- no unexplained dirty changes exist in either checkout; and
+- Stage 4 did not accidentally validate another worktree.
+
+Treat any mismatch as a blocking handoff defect until resolved.
 
 ### 2. Product Review
 
@@ -189,9 +206,8 @@ Record the finding first, then use Stage 4's reproduce-root-cause-fix loop. Reru
 
 Return upstream instead when:
 
-- Stage 0 missed a material repository constraint.
-- Stage 1 must change behavior, tradeoffs, security boundary, scope, or architecture.
-- Stage 2 must repair ambiguous/incomplete/incorrect execution packets.
+- Stage 1 missed a material repository constraint.
+- Stage 2 must change behavior, tradeoffs, security boundary, scope, architecture, or execution packets.
 - Stage 3 simply has incomplete assigned work.
 - Stage 4 lacks root cause or runtime evidence.
 
@@ -232,6 +248,79 @@ Choose one:
 
 Explain the minimum evidence that would change a non-accept verdict.
 
+### 10. Integration And Merge Gate
+
+Do not merge for `code-ready-release-unverified`, `fix-required`, returned, rollback, or blocked verdicts unless the user explicitly adopts a different repository policy after understanding the risk. The normal merge-eligible verdicts are `accept` and `accept-with-followups`.
+
+Before merging, require all of the following:
+
+1. The final reviewed feature HEAD is exactly identified and contains all Stage 3-5 fixes.
+2. Blocking acceptance criteria and required release evidence for the chosen verdict pass.
+3. The feature worktree is clean except for explicitly reviewed workflow artifacts that will be included.
+4. The integration-target checkout is clean and contains no unrelated user changes.
+5. The target branch has not drifted since integration preflight; if it has, recompute merge base/conflicts and rerun affected checks.
+6. Repository-required CI, review, signing, migration, or branch-protection policy is satisfied or explicitly routed through a PR instead of a local merge.
+7. Merge authorization is recorded in `STATE.md` or obtained from the user.
+8. Rollback/revert instructions are known.
+
+Choose the repository's established integration method: merge commit, squash, rebase/fast-forward, or pull request. Do not invent a history policy. If branch protection or team workflow requires a PR, create/prepare the PR and record `awaiting-remote-integration` instead of bypassing controls.
+
+For a permitted local merge:
+
+1. Record pre-merge target SHA and validated feature SHA.
+2. Merge from a clean integration-target worktree without deleting the feature worktree.
+3. Inspect the resulting diff/history and record merge/integration SHA.
+4. Run the planned post-merge focused, regression, build/static, and runtime checks against the integrated SHA.
+5. If post-merge validation fails, stop, preserve evidence, and revert or repair according to the approved rollback policy. Do not call the cycle accepted-and-integrated.
+6. Update merge status to `merged-and-verified` only after post-merge checks pass.
+
+Possible integration statuses:
+
+- `not-started`
+- `awaiting-authorization`
+- `awaiting-pr-or-branch-protection`
+- `merge-conflict-returned`
+- `merged-post-merge-validation-failed`
+- `merged-and-verified`
+
+Do not delete the branch/worktree automatically. Cleanup is a separate, explicit action after integrated evidence and artifact paths are durable.
+
+### 11. Close The Cycle And Promote Verified Memory
+
+Locate the project workflow registry and rolling context (`docs/ai-workflow/INDEX.md` and `PROJECT_CONTEXT.md` by default).
+
+Update the cycle registry row with:
+
+- final verdict/status;
+- baseline and final reviewed SHA;
+- feature branch/worktree, integration target, integration status, and merge/integration SHA;
+- affected modules/contracts/tags;
+- parent/relevant/superseded cycles;
+- final review and return-packet paths;
+- accepted capabilities;
+- unresolved release blockers and follow-up candidates; and
+- completion/review date.
+
+Update `PROJECT_CONTEXT.md` using only evidence supported by current code, accepted review findings, and the final reviewed feature SHA or verified integrated SHA. Make the distinction explicit:
+
+- add or revise current capabilities;
+- update public contracts/invariants and module ownership;
+- record current commands and deployment/environment state;
+- carry forward active risks, release blockers, and verification gaps;
+- add current decisions with their source cycle/SHA;
+- mark superseded decisions instead of deleting their history; and
+- remove or mark project-context claims contradicted by the final repository.
+
+Promotion rules:
+
+- `accept` and `accept-with-followups`: promote proven capability and retain followups.
+- `code-ready-release-unverified`: promote code capability but explicitly retain release/environment blockers.
+- `fix-required` or returned upstream: keep the cycle active/returned; do not promote incomplete behavior as current capability.
+- `rollback` or `abandoned`: record historical outcome; do not promote reverted behavior.
+- `blocked`: preserve verified partial facts and blockers without implying completion.
+
+Seal this cycle's `STATE.md` with final stage, verdict, final reviewed feature SHA, integration status/SHA, unresolved items, and next action. A merge-eligible verdict may close as `accepted-awaiting-integration` when authorization or protected-branch integration is pending; do not represent that as merged. Future features must create a new cycle linked through the registry. A later audit within the same objective should append/update Stage 5 evidence or a clearly named audit appendix; it must not silently reset the cycle or invent a new numbered core stage.
+
 ## Durable Artifact
 
 Write `05-final-review.md`:
@@ -257,15 +346,29 @@ Write `05-final-review.md`:
 ## Compatibility And Regression Risk
 ## Performance/Cost/Operability
 ## Deployment/Rollout/Rollback
+## Integration And Merge Record
+- Integration target and pre-merge SHA:
+- Feature branch/worktree and validated SHA:
+- Worktree name/ID and canonical absolute path:
+- Authorization/policy:
+- Integration method/status:
+- Merge/PR/integration SHA or URL:
+- Post-merge commands/evidence:
+- Cleanup status:
 ## Documentation And Workflow-State Accuracy
 ## Fixes Made During Review
 ## Residual Risk And Unverified Evidence
 ## Upstream Process Defects
 | Stage | Defect | Required improvement |
+## Project Memory Updates
+- Cycle registry update:
+- Project context facts promoted/changed:
+- Decisions superseded:
+- Follow-up cycle candidates:
 ## Required Next Action
 ```
 
-Update `STATE.md` with verdict, final HEAD, fresh evidence, unresolved findings, defect attribution, and one exact next action. Set the persistent LLM lane to `resumed-stage-5`. If accepted, set the workflow stage/status to complete without erasing followups or residual risk.
+Update `STATE.md` with verdict, final reviewed feature HEAD, integration target/current SHA, integration status/SHA, fresh evidence, unresolved findings, defect attribution, project-memory updates, and one exact next action. Set the persistent LLM lane to `resumed-stage-5`. Seal the cycle according to the verdict without erasing followups or residual risk.
 
 ## Completion Gate
 
@@ -278,6 +381,11 @@ Stage 5 is complete only when:
 - Blocking issues were fixed and reverified or routed to the earliest responsible stage.
 - Residual risks and missing evidence are explicit.
 - The anchor/return-packet path was used efficiently, and any broad rediscovery was justified by a recorded contradiction.
+- The project cycle registry records the final status, commit lineage, affected areas, and artifact paths.
+- Verified current facts were promoted to `PROJECT_CONTEXT.md`; partial/unverified claims were not promoted as complete.
+- The closed cycle remains historical evidence and is not prepared in place for the next feature.
+- Merge was either safely completed and post-merge verified, or left in an explicit non-merged status with the exact reason/action.
+- Branch/worktree cleanup was not performed implicitly.
 - `STATE.md` leaves the next model with one unambiguous action.
 
 ## Final Response
@@ -291,6 +399,7 @@ Fresh evidence: <key commands/scenarios>
 Blocking findings: <none or concise list>
 Residual risk: <concise>
 Defect attribution: <summary by stage/source>
-Required route: complete | Stage 4 | Stage 3 | Stage 2 | Stage 1 | Stage 0
+Integration: <status, target branch, feature SHA, merge/PR SHA or blocker>
+Required route: complete | awaiting integration | Stage 4 | Stage 3 | Stage 2 | Stage 1
 Exact handoff / next action: <one executable instruction>
 ```

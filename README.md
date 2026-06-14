@@ -1,420 +1,293 @@
-# Six-Stage LLM-to-SLM Product Delivery Loop
+# Five-Stage LLM-to-SLM Delivery Loop
 
-This repository contains a reusable workflow for designing, building, validating, and shipping software with a combination of:
+This repository contains five reusable prompts for moving a software change from repository discovery to reviewed integration:
 
-- a strong reasoning model for product thinking, architecture, planning, and final judgment; and
-- cost-efficient coding models for repository discovery, implementation, debugging, and validation.
+1. independent discovery;
+2. design and implementation planning;
+3. implementation;
+4. independent validation; and
+5. final review and merge.
 
-The goal is not simply to spend fewer tokens. The goal is to use each model where it creates the most value, preserve context across handoffs, and ship high-quality products without making the implementation model invent decisions it is poorly positioned to make.
+The workflow is designed for one strong reasoning model and multiple cost-efficient coding-model sessions. Its purpose is not merely lower token cost. It reduces repeated explanation, controls context growth, improves instruction following, keeps implementation isolated, and preserves enough evidence for a senior final review.
 
-## The Problem
+## Why This Exists
 
-Working across several projects with different AI coding tools creates recurring friction.
+AI-assisted work across multiple projects usually breaks at handoffs:
 
-### Repeated explanation
+- every new IDE or model session must rediscover the repository;
+- product ideas bias repository investigation toward a preferred solution;
+- smaller models receive vague plans and invent architecture or behavior;
+- implementation and validation happen in another context, so the original planner loses the actual delta;
+- completed workflow folders are reused for later features and historical state becomes ambiguous;
+- agents edit or merge from the wrong checkout; and
+- passing tests are mistaken for production readiness.
 
-Every new model or IDE session starts with limited context. The user repeatedly explains:
-
-- what the project does;
-- how the repository is organized;
-- what has already been built;
-- what the current feature should accomplish;
-- which architectural choices were made;
-- what remains unfinished; and
-- what the next agent should do.
-
-This wastes time and tokens while increasing the chance that important details are lost or rewritten differently at every handoff.
-
-### Expensive models doing low-leverage work
-
-A strong model is valuable for understanding ambiguous requirements, comparing approaches, making architecture decisions, identifying tradeoffs, and reviewing whether the correct product was built.
-
-It is often wasteful to use that same model for every repository search, mechanical edit, repetitive test run, and straightforward implementation step.
-
-### Smaller models forced to invent decisions
-
-A cost-efficient coding model can implement complex features well when it receives:
-
-- a clear objective;
-- exact boundaries and contracts;
-- repository-grounded task packets;
-- expected failure behavior;
-- test cases and validation commands; and
-- explicit stop conditions.
-
-When those are missing, the implementation model must guess. A weak implementation is then often blamed on the model even though the real defect was an incomplete design or plan.
-
-### Context loss between planning and review
-
-The strong model may deeply understand the feature during brainstorming and planning. Implementation then happens in another tool or conversation. When final review begins in a new conversation, the strong model must spend a large part of its context window rediscovering the repository and reconstructing its own earlier reasoning.
-
-That is expensive and leaves less context for the work that matters: inspecting the actual changes and deciding whether they are correct and ready to ship.
-
-### Implementers reviewing their own work
-
-An agent that wrote the code is a poor independent judge of whether the work is complete. It remembers its intent, fills gaps mentally, and can mistake passing focused tests for proof that the complete product works.
-
-### Linear workflows stop too early
-
-A normal checklist often ends at implementation or a green test suite. Shipping requires a loop:
-
-```text
-understand -> decide -> plan -> implement -> independently validate -> review -> correct
-```
-
-When review finds a problem, the work must return to the earliest stage responsible for that problem instead of applying another patch at the end.
-
-## What This Workflow Solves
-
-The six-stage loop separates responsibilities while keeping one durable chain of evidence.
-
-| Stage | Model and context | Primary responsibility | Main artifact |
-|---|---|---|---|
-| 0. Discovery | SLM, fresh context | Understand repository reality once | `00-discovery.md` |
-| 1. Brainstorming | LLM, persistent main context | Clarify requirements, value, scope, tradeoffs, and architecture | `01-design.md` |
-| 2. Planning | Same LLM context | Convert the design into repository-grounded SLM execution packets | `02-plan/` and `02-llm-review-anchor.md` |
-| 3. Implementation | SLM, fresh context | Execute the approved tasks with tests, commits, and evidence | `03-implementation-log.md` |
-| 4. Validation | Different SLM, fresh context | Independently debug, test, verify, and summarize the final delta | `04-validation-report.md` and `04-return-packet.md` |
-| 5. Final review | Return to the Stage 1-2 LLM context | Decide whether the right product was built and is ready to ship | `05-final-review.md` |
-
-Stages 1, 2, and 5 use one continuing LLM conversation. It may be compacted, but it should not be replaced unless unavoidable. Stages 3 and 4 use fresh SLM contexts so implementation and verification remain focused and independent.
+This loop turns chat context into durable, repository-grounded artifacts. Each stage has one owner, bounded inputs, required outputs, stop conditions, and an exact next action.
 
 ## Context Topology
 
 ```text
-Fresh SLM context A                Persistent LLM context P
-Stage 0 discovery ---------------> Stage 1 brainstorm -> Stage 2 plan
-                                                        |
-                                                        | pause conversation
-                                                        v
-Fresh SLM context B                Fresh SLM context C
-Stage 3 implementation ----------> Stage 4 validation + return packet
-                                                        |
-                                                        v
-                                   Persistent LLM context P
-                                   Stage 5 final review
+Fresh SLM A                  Persistent strong-model conversation P
+Stage 1 discovery ---------> Stage 2 design + planning
+                                  Plan Mode: grill and decide
+                                  Agent Mode: write artifacts/worktree handoff
+                                                    |
+                                                    | pause P
+                                                    v
+Fresh SLM B                  Fresh SLM C
+Stage 3 implementation ---> Stage 4 independent validation
+                                                    |
+                                                    v
+                              Resume conversation P
+                              Stage 5 review + integration
 ```
 
-The LLM conversation is intentionally preserved because it already contains the reasoning behind the design and plan. Stage 4 returns only the changed state and evidence required for review.
+Stage 2 and Stage 5 stay in the same strong-model conversation. It may be compacted, but `02-llm-review-anchor.md` preserves the decisions needed to resume. Stages 1, 3, and 4 use fresh contexts so discovery, implementation, and checking remain focused and independent.
 
-## Why These Stages Exist
+## The Five Stages
 
-### Stage 0: Pay the discovery cost once
+| Stage | Model/context | Responsibility | Main artifacts |
+|---|---|---|---|
+| 1. Discovery | Fresh SLM | Build a solution-blind map of current repository reality and prior-cycle relevance | `01-discovery.md`, `STATE.md` |
+| 2. Design + planning | Persistent strong LLM | Grill the idea, approve design, provision the worktree, and create SLM-executable tasks | `02-design.md`, `02-plan/`, `02-llm-review-anchor.md` |
+| 3. Implementation | Fresh SLM | Execute the approved tasks inside the canonical feature worktree | `03-implementation-log.md`, commits |
+| 4. Validation | Different fresh SLM | Independently inspect, debug, fix, test, and create a dense return packet | `04-validation-report.md`, `04-return-packet.md` |
+| 5. Final review + merge | Resume Stage 2 LLM | Judge product/code/readiness, make bounded fixes, and integrate only after gates pass | `05-final-review.md`, merge/integration record |
 
-Stage 0 maps repository reality before expensive reasoning begins. It finds project instructions, architecture, relevant modules, public contracts, tests, commands, configuration, current progress, documentation drift, and known risks.
+## Why Discovery Is Independent
 
-Its purpose is not to inventory every file. It creates a high-signal navigation map so the LLM can reason from evidence without spending its context window exploring the entire repository.
+Stage 1 does not receive the proposed implementation. It receives only a neutral discovery brief:
 
-### Stage 1: Decide what should be built
+- the observed problem;
+- the affected user workflow; or
+- the repository area to investigate.
 
-Stage 1 turns a rough request into a precise product and architecture design. It challenges the idea, defines the user outcome, compares approaches, resolves tradeoffs, identifies failure behavior, and creates measurable acceptance criteria.
+It maps current behavior, contracts, tests, risks, extension points, and prior-cycle evidence without trying to prove the user's idea correct. The full idea is introduced in Stage 2, where the strong model compares it against independent repository truth.
 
-This is where the strongest model creates the most leverage. Better understanding here produces a better plan and therefore a better SLM implementation.
+If no neutral scope is supplied, Stage 1 performs a project-context refresh and does not open or reset a feature cycle.
 
-### Stage 2: Remove implementation guesswork
+## Why Design And Planning Are Combined
 
-Stage 2 translates the approved design into execution packets. Each task specifies relevant files and symbols, contracts, invariants, implementation guidance, test cases, validation commands, allowed adaptations, and stop conditions.
+Design and planning use the same reasoning context and are now one prompt.
 
-The planner is accountable for plan quality. If the SLM cannot execute safely without inventing architecture or product behavior, the plan is incomplete.
+In IDE **Plan Mode**, Stage 2:
 
-Before pausing, the LLM writes `02-llm-review-anchor.md`. This preserves the objective, key decisions, rejected alternatives, expected change surface, acceptance criteria, and review hypotheses in case the conversation is compacted.
+- asks one material question at a time using the IDE question UI;
+- challenges the proposed solution;
+- compares viable approaches;
+- defines scope, contracts, failure behavior, and acceptance criteria; and
+- obtains approval.
 
-### Stage 3: Execute efficiently
+When the user switches to **Agent Mode** or approves artifact creation, the same conversation:
 
-Stage 3 gives a cost-efficient coding model a bounded task rather than the entire project history. It reads only the plan, relevant design sections, and required source/tests.
+- creates or verifies the canonical feature worktree;
+- writes `02-design.md`;
+- writes repository-grounded task packets;
+- writes the compact review anchor; and
+- prepares the exact Stage 3 handoff.
 
-The implementer follows a gated cycle:
+Switching modes does not authorize production implementation. It materializes the approved plan so a fresh SLM can execute it.
+
+## Worktree And Merge Ownership
+
+Every concrete cycle has one canonical worktree contract:
+
+```markdown
+Integration target branch:
+Feature branch:
+Worktree name/ID:
+Canonical worktree absolute path:
+Worktree baseline SHA:
+Worktree status:
+Merge owner: Stage 5 persistent LLM
+Merge authorization: required | pre-authorized
+Merge status: not-started
+```
+
+Ownership is deliberate:
+
+- Stage 1 may bootstrap the worktree so its cycle artifacts begin in the correct checkout.
+- Stage 2 must verify or safely create it before handing off implementation.
+- Stage 3 refuses to edit the integration/default branch and works only in the canonical worktree.
+- Stage 4 validates and fixes the same feature worktree, records its absolute path and final SHA, and never merges.
+- Stage 5 alone decides and performs integration after acceptance, authorization, clean-state checks, target-drift checks, and post-merge validation.
+
+A merge is not a deployment. `code-ready-release-unverified` remains unmerged by default. Production-release claims require the environment, distribution, migration, signing, rollout, and rollback evidence relevant to that project.
+
+## Multi-Cycle Memory
+
+The workflow is a repeating loop, not a folder that is reset for every idea.
 
 ```text
-inspect -> reproduce or write failing test -> implement -> focused verification ->
-regression checks -> runtime validation -> diff review -> document -> commit
+docs/ai-workflow/
+  INDEX.md
+  PROJECT_CONTEXT.md
+  cycles/
+    <YYYYMMDD>-<scope-slug>/
+      STATE.md
+      01-discovery.md
+      02-design.md
+      02-plan/
+        00-plan-index.md
+        <task files>.md
+      02-llm-review-anchor.md
+      03-implementation-log.md
+      04-validation-report.md
+      04-return-packet.md
+      05-final-review.md
 ```
 
-It may make small repository-grounded adaptations, but must return plan or design defects instead of silently redesigning the feature.
+`INDEX.md` is the compact cycle registry. It records objectives, verdicts, baseline/final/integration SHAs, affected areas, lineage, blockers, and artifact paths.
 
-### Stage 4: Use a fresh checker
+`PROJECT_CONTEXT.md` is the verified current view: capabilities, contracts, module map, commands, deployment state, active risks, deferred work, and current decisions.
 
-Stage 4 runs in a separate SLM context. It does not trust the implementation report. It compares the plan with the actual diff, reproduces failures, finds root causes, validates negative and runtime paths, and fixes clear implementation defects.
+Each cycle directory is historical evidence for one objective. A closed cycle is never reset to Stage 1 for a new feature. New work gets a new linked cycle, even when it follows up or replaces an earlier feature.
 
-It then writes `04-return-packet.md`, a reviewer-oriented delta dossier containing:
+## Prior-Knowledge Freshness
 
-- final commit range and worktree state;
-- commit-by-commit intent;
-- file and symbol changes;
-- contract and architecture deltas;
-- acceptance-criterion coverage;
-- commands and runtime evidence;
-- plan deviations and fixes;
-- newly discovered repository facts;
-- residual risks and unverified claims; and
-- the recommended Stage 5 reading order.
+Stage 1 reads workflow memory before broad repository exploration, but does not trust it blindly. Prior claims are classified as:
 
-This prevents the final LLM from repeating Stage 0 discovery.
+- `carry-forward-confirmed`;
+- `carry-forward-provisional`;
+- `superseded`;
+- `contradicted`;
+- `historical-only`; or
+- `unknown`.
 
-### Stage 5: Review with the original reasoning context
+The agent checks source SHA ancestry, later cycles, relevant path changes, branch divergence, and prior verdict. Planned, partial, rolled-back, or release-unverified behavior is never inherited as fully implemented fact.
 
-Stage 5 returns to the LLM conversation that created the design and plan. The model already understands why choices were made. It reloads only the review anchor, Stage 4 return packet, actual diff, and high-risk changed files.
+This makes later cycles cheaper without allowing stale workflow files to override current code.
 
-This preserves context for product and engineering judgment rather than spending it on repository rediscovery.
+## Artifact Roles
 
-## Cost Efficiency Without Quality Loss
+### `STATE.md`
 
-The workflow saves cost through specialization, not by reducing rigor.
+The authoritative control plane for one cycle. It records:
 
-### Strong-model tokens are spent on high-leverage decisions
+- cycle identity and lineage;
+- immutable approved objective;
+- current/next stage and context owner;
+- repository baseline and current HEAD;
+- canonical worktree contract;
+- scope, decisions, assumptions, and blockers;
+- artifact paths;
+- acceptance/evidence summary;
+- execution ledger;
+- merge/integration status; and
+- one exact next action.
 
-The LLM handles:
+### `02-llm-review-anchor.md`
 
-- ambiguous requirements;
-- product scope and user value;
-- architecture and system boundaries;
-- security, reliability, migration, and compatibility tradeoffs;
-- execution-plan quality; and
-- final production-readiness judgment.
+A compact backup of the strong model's intent: approved decisions, rejected alternatives, invariants, risk-ranked acceptance criteria, expected change surface, review hypotheses, and rehydration order.
 
-### SLM tokens are spent on evidence-heavy execution
+### `04-return-packet.md`
 
-SLMs handle:
+The implementation delta dossier returned to the original LLM. It contains:
 
-- repository mapping;
-- bounded implementation tasks;
-- test execution;
-- debugging and reproduction;
-- diff inspection; and
-- evidence collection.
+- exact worktree, branch, baseline, and final validated SHA;
+- commit ledger and changed symbols;
+- contract/architecture deltas;
+- acceptance coverage;
+- Stage 4 fixes;
+- command/runtime evidence;
+- plan deviations and new repository facts;
+- residual risks;
+- integration preflight; and
+- an ordered Stage 5 review map.
 
-### The workflow avoids repeated full-context loading
+It references raw logs and artifacts by path rather than consuming the final review context with them.
 
-Each model loads only the context required for its stage. Durable artifacts carry decisions and deltas across sessions. Large raw outputs remain on disk and are loaded only when needed.
+## Running A Cycle
 
-Cost is reduced while preserving independent verification, negative testing, runtime evidence, and final senior review.
+### 1. Run discovery
 
-## Context Management Model
+Start a fresh SLM context with [01-discovery.prompt.md](01-discovery.prompt.md). Provide the repository and a neutral problem/workflow/area. Do not include the preferred solution.
 
-Context is divided into three layers.
-
-### Hot context
-
-Information needed for the current action:
-
-- the assigned task packet;
-- relevant source and tests;
-- immediate command output; and
-- current errors or runtime behavior.
-
-Keep hot context inside the active model session.
-
-### Warm context
-
-Compact artifacts required to resume or hand off work:
-
-- `STATE.md`;
-- discovery and design summaries;
-- plan index;
-- `02-llm-review-anchor.md`; and
-- `04-return-packet.md`.
-
-Warm context is the minimum rehydration set after compaction or context switching.
-
-### Cold evidence
-
-Large or infrequently needed material:
-
-- complete logs;
-- screenshots and recordings;
-- generated artifacts;
-- full test output;
-- raw traces; and
-- broad unchanged repository files.
-
-Cold evidence is referenced by path and loaded only when a claim needs verification.
-
-The artifacts should not copy the repository. They should summarize decisions and changes while pointing to exact files, symbols, commits, commands, and evidence.
-
-## Quality Safeguards
-
-### Clear decision ownership
-
-The LLM owns consequential product and architecture choices. The SLM owns bounded implementation decisions within those constraints.
-
-### Maker/checker separation
-
-Stage 3 implements. Stage 4 independently validates. The implementer cannot be the only evidence that its work is correct.
-
-### Evidence before completion
-
-Completion claims require fresh tests, commands, runtime checks, generated artifacts, or review evidence. Plans and implementation reports are not proof.
-
-### Happy and negative paths
-
-The workflow requires relevant invalid, empty, permission, dependency-failure, retry, concurrency, compatibility, rollback, and recovery scenarios rather than validating only the happy path.
-
-### Stop conditions instead of guessing
-
-SLM prompts define when minor adaptation is allowed and when work must return to planning or design. This limits silent architecture drift.
-
-### Defect attribution
-
-Every important failure is classified as:
-
-- discovery defect;
-- design defect;
-- plan defect;
-- implementation defect;
-- environment defect; or
-- verification defect.
-
-This matters because quality problems must improve the stage that caused them. A missing contract in the plan should not be disguised as an implementation mistake.
-
-### Earliest-responsible-stage routing
-
-When review finds a problem, the loop returns to the earliest stage able to correct it:
-
-- misunderstood repository -> Stage 0;
-- wrong requirement, tradeoff, or architecture -> Stage 1;
-- ambiguous or incomplete execution packet -> Stage 2;
-- incomplete or incorrect coding -> Stage 3;
-- unexplained failure or insufficient runtime proof -> Stage 4.
-
-This avoids accumulating patches on top of a faulty premise.
-
-## Other Advantages
-
-### Faster feature delivery
-
-The user no longer rewrites a custom handoff prompt for every tool. Each stage has a reusable prompt, known inputs, required output, and exact next action.
-
-### Better instruction following
-
-Every model receives a narrower role with explicit ownership, forbidden decisions, completion gates, and output schemas. Smaller models perform better when their decision surface is constrained.
-
-### Easier interruption and resumption
-
-`STATE.md` records the current stage, commit, artifacts, evidence, blockers, context owner, and next action. A session can stop without losing the workflow.
-
-### Better reviewability
-
-Commits, tasks, acceptance criteria, changed symbols, and validation evidence are linked. Review begins from a structured change manifest rather than a vague summary.
-
-### Honest progress reporting
-
-The workflow distinguishes implemented, validated, release-unverified, blocked, and accepted states. A green unit test is not automatically treated as production readiness.
-
-### Reusable across projects and tools
-
-The prompts do not hardcode a language, framework, product, repository, IDE, or model vendor. They discover and follow each repository's existing conventions.
-
-### Better organizational memory
-
-Design decisions, rejected alternatives, plan assumptions, implementation deviations, and final review findings become durable project artifacts instead of disappearing inside chat histories.
-
-## Canonical Artifact Layout
-
-Use the repository's established documentation convention when one exists. Otherwise use:
-
-```text
-docs/ai-workflow/<feature-slug>/
-  STATE.md
-  00-discovery.md
-  01-design.md
-  02-plan/
-    00-plan-index.md
-    01-<slice>.md
-    02-<slice>.md
-  02-llm-review-anchor.md
-  03-implementation-log.md
-  04-validation-report.md
-  04-return-packet.md
-  05-final-review.md
-```
-
-The stage number identifies the workflow stage, not the model. A plan may contain one or many implementation slices depending on complexity.
-
-## How To Run The Loop
-
-### 1. Run Stage 0 in an SLM context
-
-Paste [00-discovery.prompt.md](00-discovery.prompt.md). The result should be a repository-grounded discovery artifact and initialized `STATE.md`.
+Expected result: a new cycle directory, independent discovery, project-memory updates, and a canonical worktree or an explicit worktree blocker.
 
 ### 2. Start the persistent LLM conversation
 
-Paste [01-brainstorming.prompt.md](01-brainstorming.prompt.md) into the strong reasoning model. Provide the user request and Stage 0 artifact paths.
+Open the strong model in Plan Mode with [02-design-and-planning.prompt.md](02-design-and-planning.prompt.md). Provide the full idea plus Stage 1 artifact paths.
 
-Continue directly to [02-planning.prompt.md](02-planning.prompt.md) in the same conversation.
+Answer the focused questions. After approving the direction, switch to Agent Mode in the same conversation so it writes the design, plan, review anchor, and worktree handoff.
 
-### 3. Pause, but preserve, the LLM conversation
+### 3. Pause the LLM and implement
 
-Stage 2 writes the plan and `02-llm-review-anchor.md`. Do not close or replace this conversation. Compaction is acceptable because the anchor can restore its critical reasoning.
+Keep the Stage 2 conversation available. Start a fresh SLM inside the recorded worktree with [03-implementation.prompt.md](03-implementation.prompt.md).
 
-### 4. Run Stage 3 in a fresh SLM context
+The implementer verifies worktree identity before editing, follows the task packets, commits coherent feature-branch changes, and records evidence.
 
-Paste [03-implementation.prompt.md](03-implementation.prompt.md) with `STATE.md`, the plan index, and assigned execution packet.
+### 4. Validate independently
 
-Use another fresh context for a large independent slice when the plan recommends it.
+Start a different fresh SLM in the same canonical worktree with [04-validation.prompt.md](04-validation.prompt.md).
 
-### 5. Run Stage 4 in a different fresh SLM context
+It distrusts implementation claims, inspects the actual diff, reproduces and fixes defects, runs risk-proportionate checks, and produces the return packet. It does not merge.
 
-Paste [04-validation.prompt.md](04-validation.prompt.md). It should independently inspect the diff, validate behavior, fix localized implementation defects, and create the return packet.
+### 5. Resume the original LLM
 
-### 6. Return to the original LLM conversation
+Return to the Stage 2 conversation and run [05-review.prompt.md](05-review.prompt.md).
 
-Paste [05-review.prompt.md](05-review.prompt.md) into the same conversation used for Stages 1 and 2.
-
-Stage 5 should begin with:
+The minimum rehydration set is:
 
 1. `STATE.md`;
 2. `02-llm-review-anchor.md`;
 3. `04-return-packet.md`;
-4. the actual commit range and diff; and
-5. targeted high-risk files and evidence.
+4. the actual baseline-to-validated-head diff; and
+5. high-risk files/evidence selected by the return packet.
 
-It should not begin by rereading the entire repository.
+Stage 5 reviews independently and merges only when its integration gate passes.
 
-## Starting From A Later Stage
+## Verdict And Integration Semantics
 
-- New or poorly understood project: start at Stage 0.
-- Repository already understood but feature is unclear: start at Stage 1.
-- Approved design already exists: start at Stage 2.
-- Execution-ready plan already exists: start at Stage 3.
-- Code already changed or a bug exists: start at Stage 4.
-- Work claims to be complete: start at Stage 5.
+Stage 5 verdicts include:
 
-Starting late is allowed. Pretending skipped artifacts or evidence exist is not.
+- `accept`;
+- `accept-with-followups`;
+- `code-ready-release-unverified`;
+- `fix-required`;
+- returned to an earlier stage;
+- `rollback`; or
+- `blocked`.
 
-If Stage 5 cannot return to the original LLM conversation, start a new strong-model context with this rehydration order:
+Integration status is recorded separately:
 
-1. `STATE.md`
-2. `02-llm-review-anchor.md`
-3. `04-return-packet.md`
-4. referenced sections of `01-design.md`
-5. `02-plan/00-plan-index.md`
-6. actual commit range, diff, and targeted changed files
+- `not-started`;
+- `awaiting-authorization`;
+- `awaiting-pr-or-branch-protection`;
+- `merge-conflict-returned`;
+- `merged-post-merge-validation-failed`; or
+- `merged-and-verified`.
 
-Use broad repository discovery only when these artifacts are missing, contradictory, or stale.
+This prevents an accepted design, green feature branch, local merge, CI pass, and production deployment from being collapsed into one misleading word: "done."
 
-## Handoff Contract
+## Earliest-Responsible-Stage Routing
 
-Every stage updates `STATE.md` and ends with the same minimum envelope:
+When a problem is found, return it to the earliest stage that can correct it:
 
-```text
-workflow/stage/status -> context owner -> baseline/current HEAD -> artifacts ->
-evidence -> decisions/deviations -> unresolved risks -> defect source ->
-next stage -> exact next action
-```
+- repository truth, lineage, or stale context -> Stage 1;
+- outcome, scope, architecture, contracts, or task packet -> Stage 2;
+- incomplete or incorrect implementation -> Stage 3;
+- unresolved root cause or insufficient independent proof -> Stage 4;
+- final judgment/integration policy -> Stage 5.
 
-If repository policy prevents artifact writes, the agent must emit the complete artifact in its response and mark durable handoff as unresolved. Chat-only handoff is a fallback, not the preferred operating mode.
+This improves the workflow itself instead of layering late patches over a faulty premise.
+
+## Legacy Cycles
+
+Older workflow runs may contain `00-discovery.md`, `01-design.md`, or separate Stage 1/2 prompts. Keep those directories unchanged as historical evidence. Register their existing paths in `INDEX.md` and let the new Stage 1 translate them into the current five-stage model when they are relevant.
+
+Do not rename old artifacts merely for visual consistency. New cycles use the Stage 1-5 naming in this README.
 
 ## Definition Of Success
 
-This workflow succeeds when:
+The workflow succeeds when:
 
-- the user spends less time rewriting prompts and project context;
-- the strong model spends most of its context on reasoning and review;
-- implementation models receive enough detail to execute without architectural guesswork;
-- context switching does not erase decisions or progress;
-- every completion claim is supported by evidence;
-- quality failures are traced to the stage that caused them;
-- the final result solves the intended user problem; and
-- the product can be shipped with explicit knowledge of remaining risk.
-
-Cost efficiency is useful only when quality remains intact. If a smaller model produces poor work because the design or plan was incomplete, the workflow must improve the design or plan rather than accepting lower quality as the price of using a cheaper model.
+- repository discovery is independent of the proposed solution;
+- the strong model spends context on decisions and final judgment;
+- SLMs receive bounded, executable instructions;
+- every cycle has one unambiguous worktree and branch;
+- maker/checker separation produces independent evidence;
+- the final LLM can resume without broad rediscovery;
+- merge occurs only after review, authorization, and post-merge proof;
+- production readiness is reported honestly; and
+- the next feature starts a linked cycle without corrupting prior history.
